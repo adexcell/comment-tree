@@ -1,20 +1,31 @@
 package main
 
 import (
-	"github.com/adexcell/comment-tree/internal/comment"
-	"github.com/wb-go/wbf/ginext"
-	"github.com/wb-go/wbf/zlog"
+	"context"
+
+	"github.com/adexcell/comment-tree/config"
+	"github.com/adexcell/comment-tree/internal/app"
+	"github.com/adexcell/comment-tree/pkg/logger"
+	"github.com/adexcell/comment-tree/pkg/otel"
+	"github.com/rs/zerolog/log"
 )
 
 func main() {
-	zlog.Init()
+	c, err := config.New()
+	if err != nil {
+		log.Fatal().Err(err).Msg("config.New")
+	}
 
-	zlog.Logger.Info().Msg("create httprouter")
-	httprouter := ginext.New("debug")
+	logger.Init(c.Logger)
 
-	zlog.Logger.Info().Msg("add comment routs")
-	commentHandler := comment.New()
-	commentHandler.Register(httprouter)
+	ctx := context.Background()
 
-	httprouter.Run()
+	if err = otel.Init(ctx, c.OTEL); err != nil {
+		log.Error().Err(err).Msg("otel.Init")
+	}
+	defer otel.Close()
+
+	if err := app.Run(ctx, c); err != nil {
+		log.Error().Err(err).Msg("app.Run")
+	}
 }
